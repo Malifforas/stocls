@@ -1,35 +1,53 @@
 import pandas as pd
 import yfinance as yf
+import joblib
 
-# Define the stock ticker symbol and date range
-symbol = "AAPL"
-start_date = "2010-01-01"
-end_date = "2023-04-19"
 
-# Download historical stock data
-try:
-    df = yf.download(symbol, start=start_date, end=end_date)
-except Exception as e:
-    print("Error downloading data:", e)
+class Data:
+    def __init__(self, symbol, start_date, end_date):
+        self.symbol = symbol
+        self.start_date = start_date
+        self.end_date = end_date
 
-# Fill in missing data using forward fill
-df.fillna(method="ffill", inplace=True)
+        self.train = None
+        self.test = None
+        self.columns = None
 
-# Calculate daily percentage returns
-df["Return"] = df["Adj Close"].pct_change()
+        self._load_data()
+        self._save_data()
 
-# Create lagged features
-df["Lag1"] = df["Return"].shift(1)
-df["Lag2"] = df["Return"].shift(2)
-df["Lag3"] = df["Return"].shift(3)
+    def _load_data(self):
+        # Download historical stock data
+        try:
+            df = yf.download(self.symbol, start=self.start_date, end=self.end_date)
+        except Exception as e:
+            print("Error downloading data:", e)
+            return
 
-# Drop any rows with missing data
-df.dropna(inplace=True)
+        # Fill in missing data using forward fill
+        df.fillna(method="ffill", inplace=True)
 
-# Split the data into training and testing sets
-train = df[df.index < "2021-01-01"]
-test = df[df.index >= "2021-01-01"]
+        # Calculate daily percentage returns
+        df["Return"] = df["Adj Close"].pct_change()
 
-# Save the data to a file
-train.to_csv("train.csv")
-test.to_csv("test.csv")
+        # Create lagged features
+        df["Lag1"] = df["Return"].shift(1)
+        df["Lag2"] = df["Return"].shift(2)
+        df["Lag3"] = df["Return"].shift(3)
+
+        # Drop any rows with missing data
+        df.dropna(inplace=True)
+
+        # Split the data into training and testing sets
+        self.train = df[df.index < "2021-01-01"]
+        self.test = df[df.index >= "2021-01-01"]
+
+        # Save the column names to a file
+        self.columns = df.columns.tolist()
+
+    def _save_data(self):
+        self.train.to_csv("train.csv")
+        self.test.to_csv("test.csv")
+
+        with open("columns.pkl", "wb") as f:
+            joblib.dump(self.columns, f)

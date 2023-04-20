@@ -1,20 +1,41 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
-# Load the data from the CSV file
-df = pd.read_csv("train.csv")
+def preprocess_data(data):
+    # Fill in missing data using forward fill
+    data.fillna(method="ffill", inplace=True)
 
-# Split the data into training and validation sets
-train_df, val_df = train_test_split(df, test_size=0.2, random_state=42)
+    # Calculate daily percentage returns
+    data["Return"] = data["Adj Close"].pct_change()
 
-# Define the feature columns and target column
-feature_cols = train_df.columns[:-1]
-target_col = train_df.columns[-1]
+    # Create lagged features
+    data["Lag1"] = data["Return"].shift(1)
+    data["Lag2"] = data["Return"].shift(2)
+    data["Lag3"] = data["Return"].shift(3)
 
-# Extract the features and target for the training set
-train_features = train_df[feature_cols].values
-train_target = train_df[target_col].values
+    # Drop any rows with missing data
+    data.dropna(inplace=True)
 
-# Extract the features and target for the validation set
-val_features = val_df[feature_cols].values
-val_target = val_df[target_col].values
+    # Scale the data
+    scaler = StandardScaler()
+    data[["Open", "High", "Low", "Close", "Adj Close", "Volume", "Lag1", "Lag2", "Lag3"]] = scaler.fit_transform(data[["Open", "High", "Low", "Close", "Adj Close", "Volume", "Lag1", "Lag2", "Lag3"]])
+
+    return data
+
+# Load the training data from file
+train = pd.read_csv("train.csv", index_col="Date", parse_dates=True)
+
+# Preprocess the training data
+train = preprocess_data(train)
+
+# Save the preprocessed data to file
+train.to_csv("train_processed.csv")
+
+# Load the test data from file
+test = pd.read_csv("test.csv", index_col="Date", parse_dates=True)
+
+# Preprocess the test data using the same steps as for the training data
+test = preprocess_data(test)
+
+# Save the preprocessed data to file
+test.to_csv("test_processed.csv")

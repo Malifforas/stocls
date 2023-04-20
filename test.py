@@ -1,11 +1,20 @@
-# Download real-time stock data
-df_live = yf.download("AAPL", start="2023-04-19", end="2023-04-19")
+import pandas as pd
+import joblib
 
-# Calculate the lagged features
-live_features = [df_live['Return'].shift(1)[0], df_live['Return'].shift(2)[0], df_live['Return'].shift(3)[0]]
+# Load the test data
+test = pd.read_csv("test_processed.csv", index_col="Date", parse_dates=True)
 
-# Make a prediction on the live data
-live_pred = best_clf.predict([live_features])[0]
+# Load the trained model from file
+model = joblib.load("model.pkl")
 
-# Print the predicted return for the next day
-print('Predicted return:', live_pred)
+# Remove the "Adj Close" column from the test data
+X_test = test.drop(columns=["Return", "Adj Close"])
+
+# Use the model to predict on the test data
+y_pred = model.predict(X_test)
+
+# Add the predicted returns to the test data
+test["Predicted_Return"] = y_pred
+
+# Save the test data with the predicted returns to file
+test.to_csv("test_results.csv")
